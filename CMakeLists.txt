@@ -22,9 +22,9 @@ set(CXX_WARNINGS_AS_ERRORS OFF CACHE BOOL "Disable warnings as errors")
 FetchContent_MakeAvailable(aeron)
 
 # Collect source files
-file(GLOB SOURCES "*.cpp")
+file(GLOB SOURCE_FILES "*.cpp")
 
-add_library(${PROJECT_NAME} ${SOURCES})
+add_library(${PROJECT_NAME} ${SOURCE_FILES})
 
 # Include Aeron headers
 target_include_directories(${PROJECT_NAME}  PRIVATE 
