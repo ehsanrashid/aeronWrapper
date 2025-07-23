@@ -24,6 +24,8 @@ FetchContent_MakeAvailable(aeron)
 # Collect source files
 file(GLOB SOURCE_FILES "*.cpp")
 
+file(GLOB HEADERS "*.h")
+
 add_library(${PROJECT_NAME} ${SOURCE_FILES})
 
 # Include Aeron headers
@@ -37,3 +39,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     aeron_driver
     aeron_client
 )
+
+install(TARGETS ${PROJECT_NAME}
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        RUNTIME DESTINATION bin
+        INCLUDES DESTINATION include)
+install(FILES ${HEADERS} DESTINATION include/)
