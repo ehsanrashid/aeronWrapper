@@ -1,7 +1,9 @@
 #include "aeron_wrapper.h"
+#include "FragmentAssembler.h"
 
 namespace aeron_wrapper {
 
+static constexpr std::chrono::duration<long, std::milli> SLEEP_IDLE_MS(1);
 // Get publication constants as string for debugging
 std::string pubresult_to_string(PublicationResult pubResult) {
     switch (pubResult) {
@@ -27,16 +29,16 @@ AeronException::AeronException(const std::string& message)
 
 // Helper to get data as string
 std::string FragmentData::as_string() const {
-    return std::string(reinterpret_cast<const char*>(buffer), length);
+    return std::string(reinterpret_cast<const char*>(_buffer.buffer()), _length);
 }
 
 // Helper to get data as specific type
 template <typename T>
 const T& FragmentData::as() const {
-    if (length < sizeof(T)) {
+    if (_length < sizeof(T)) {
         throw AeronException("Fragment too small for requested type");
     }
-    return *reinterpret_cast<const T*>(buffer);
+    return *reinterpret_cast<const T*>(_buffer.buffer());
 }
 
 Publication::Publication(std::shared_ptr<aeron::Publication> pub,
@@ -182,12 +184,11 @@ Subscription::BackgroundPoller::BackgroundPoller(
     isRunning_ = true;
     pollThread_ = std::make_unique<std::thread>([this, subscription,
                                                  fragmentHandler]() {
+        aeron::SleepingIdleStrategy sleepStrategy(SLEEP_IDLE_MS);
         while (isRunning_) {
             try {
                 int fragments = subscription->poll(fragmentHandler, 10);
-                if (fragments == 0) {
-                    std::this_thread::sleep_for(std::chrono::microseconds(100));
-                }
+                sleepStrategy.idle(fragments);
             } catch (const std::exception&) {
                 // Log error in real implementation
                 break;
@@ -225,20 +226,9 @@ int Subscription::poll(const FragmentHandler& fragmentHandler,
     if (!subscription_) {
         return 0;
     }
-
-    return subscription_->poll(
-        [&fragmentHandler](const aeron::concurrent::AtomicBuffer& buffer,
-                           aeron::util::index_t offset,
-                           aeron::util::index_t length,
-                           const aeron::Header& header) {
-            FragmentData fragmentData{
-                buffer.buffer() + offset, static_cast<std::size_t>(length),
-                header.position(),        header.sessionId(),
-                header.streamId(),        header.termId(),
-                header.termOffset()};
-            fragmentHandler(fragmentData);
-        },
-        fragmentLimit);
+    aeron::FragmentAssembler fragmentAssembler(fragHandler(fragmentHandler));
+    aeron::fragment_handler_t handler = fragmentAssembler.handler();
+    return subscription_->poll(handler, fragmentLimit);
 }
 
 // Block poll - polls until at least one message or timeout
@@ -429,6 +419,22 @@ std::unique_ptr<Subscription> Aeron::create_subscription(
         throw AeronException("Failed to create subscription: " +
                              std::string(e.what()));
     }
+}
+
+aeron::fragment_handler_t Subscription::fragHandler(const FragmentHandler& fragmentHandler){
+    return  [&](const aeron::AtomicBuffer &buffer,
+               std::int32_t offset,
+               std::int32_t length,
+               const aeron::Header &header)
+    {
+        FragmentData fragmentData{
+            buffer,
+            offset,
+            length,
+            header
+        };
+        fragmentHandler(fragmentData);
+    };
 }
 
 }  // namespace aeron_wrapper

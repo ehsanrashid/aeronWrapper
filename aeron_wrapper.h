@@ -5,16 +5,24 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <variant>
 #include <vector>
 
 // Aeron C++ headers
+#include <concurrent/BackOffIdleStrategy.h>
+
 #include "Aeron.h"
 #include "concurrent/AgentRunner.h"
 #include "concurrent/AtomicBuffer.h"
+#include "concurrent/ringbuffer/OneToOneRingBuffer.h"
 #include "util/Index.h"
+
+constexpr auto TRAILER_LENGTH =
+    aeron::concurrent::ringbuffer::RingBufferDescriptor::TRAILER_LENGTH;
 
 namespace aeron_wrapper {
 
@@ -44,13 +52,10 @@ class Aeron;
 
 // Fragment handler with metadata
 struct FragmentData {
-    const std::uint8_t* buffer;
-    std::size_t length;
-    std::int64_t position;
-    std::int32_t sessionId;
-    std::int32_t streamId;
-    std::int32_t termId;
-    std::int32_t termOffset;
+    const aeron::concurrent::AtomicBuffer& _buffer;
+    aeron::util::index_t _length;
+    aeron::util::index_t _offset;
+    const aeron::Header& _header;
 
     // Helper to get data as string
     std::string as_string() const;
@@ -61,7 +66,7 @@ struct FragmentData {
 };
 
 using FragmentHandler = std::function<void(const FragmentData& fragment)>;
-
+using ReadHandler = std::function<bool(int8_t, char*, int32_t, int32_t, int32_t)>;
 // Connection state callback
 using ConnectionHandler = std::function<void(bool connected)>;
 
@@ -189,6 +194,10 @@ class Subscription {
     std::unique_ptr<BackgroundPoller> start_background_polling(
         const FragmentHandler& fragmentHandler);
 
+    // handler to be used in poll
+    aeron::fragment_handler_t fragHandler(
+        const FragmentHandler& fragmentHandler);
+
     // Status methods
     bool is_connected() const;
 
@@ -203,6 +212,50 @@ class Subscription {
 
    private:
     void check_connection_state();
+};
+
+class RingBuffer {
+   public:
+    RingBuffer(size_t size)
+        : buffer(size + TRAILER_LENGTH),
+          _buffer(buffer.data(), size + TRAILER_LENGTH),
+          _ring_buffer(_buffer) {}
+    bool write(const aeron_wrapper::FragmentData& fragmentData) {
+        aeron::concurrent::BackoffIdleStrategy idleStrategy(100, 1000);
+        bool is_written = false;
+        auto start = std::chrono::high_resolution_clock::now();
+        while (!is_written) {
+            is_written =
+                _ring_buffer.write(1,
+                                   const_cast<aeron::concurrent::AtomicBuffer&>(
+                                       fragmentData._buffer),
+                                   fragmentData._offset, fragmentData._length);
+            if (is_written) {
+                return is_written;
+            }
+            if (std::chrono::high_resolution_clock::now() - start >=
+                std::chrono::microseconds(50)) {
+                std::cerr << "retry timeout" << std::endl;
+                return is_written;
+            }
+            idleStrategy.idle();
+        }
+    }
+    bool read(ReadHandler handler) {
+        _ring_buffer.read([&](int8_t msgType,
+                              aeron::concurrent::AtomicBuffer& buffer,
+                              int32_t offset, int32_t length) {
+            return handler(msgType, reinterpret_cast<char*>(buffer.buffer()), offset, length, buffer.capacity());
+        });
+    }
+    ~RingBuffer()
+    {
+
+    }
+   private:
+    std::vector<uint8_t> buffer;
+    aeron::concurrent::AtomicBuffer _buffer;
+    aeron::concurrent::ringbuffer::OneToOneRingBuffer _ring_buffer;
 };
 
 // RAII wrapper for Aeron Client
@@ -240,6 +293,10 @@ class Aeron {
     std::unique_ptr<Subscription> create_subscription(
         const std::string& channel, std::int32_t streamId,
         const ConnectionHandler& connectionHandler = nullptr);
+
+    // ids to track current publication/subscription
+    int64_t subscription_id;
+    int64_t publication_id;
 };
 
 }  // namespace aeron_wrapper
