@@ -217,35 +217,35 @@ class Subscription {
 class RingBuffer {
    public:
     RingBuffer(size_t size)
-        : buffer(size + TRAILER_LENGTH),
-          _buffer(buffer.data(), size + TRAILER_LENGTH),
-          _ring_buffer(_buffer) {}
-    bool write(const aeron_wrapper::FragmentData& fragmentData) {
+        : _buffer(size + TRAILER_LENGTH),
+          _atomicBuffer(_buffer.data(), size + TRAILER_LENGTH),
+          _ringBuffer(_atomicBuffer) {}
+    bool write_buffer(const aeron_wrapper::FragmentData& fragmentData) {
         aeron::concurrent::BackoffIdleStrategy idleStrategy(100, 1000);
-        bool is_written = false;
+        bool isWritten = false;
         auto start = std::chrono::high_resolution_clock::now();
-        while (!is_written) {
-            is_written =
-                _ring_buffer.write(1,
+        while (!isWritten) {
+            isWritten =
+                _ringBuffer.write(1,
                                    const_cast<aeron::concurrent::AtomicBuffer&>(
                                        fragmentData._buffer),
                                    fragmentData._offset, fragmentData._length);
-            if (is_written) {
-                return is_written;
+            if (isWritten) {
+                return isWritten;
             }
             if (std::chrono::high_resolution_clock::now() - start >=
                 std::chrono::microseconds(50)) {
                 std::cerr << "retry timeout" << std::endl;
-                return is_written;
+                return isWritten;
             }
             idleStrategy.idle();
         }
     }
-    bool read(ReadHandler handler) {
-        _ring_buffer.read([&](int8_t msgType,
-                              aeron::concurrent::AtomicBuffer& buffer,
+    bool read_buffer(ReadHandler readHandler) {
+        _ringBuffer.read([&](int8_t msgType,
+                              aeron::concurrent::AtomicBuffer& atomicBuffer,
                               int32_t offset, int32_t length) {
-            return handler(msgType, reinterpret_cast<char*>(buffer.buffer()), offset, length, buffer.capacity());
+            return readHandler(msgType, reinterpret_cast<char*>(atomicBuffer.buffer()), offset, length, atomicBuffer.capacity());
         });
     }
     ~RingBuffer()
@@ -253,9 +253,9 @@ class RingBuffer {
 
     }
    private:
-    std::vector<uint8_t> buffer;
-    aeron::concurrent::AtomicBuffer _buffer;
-    aeron::concurrent::ringbuffer::OneToOneRingBuffer _ring_buffer;
+    std::vector<uint8_t> _buffer;
+    aeron::concurrent::AtomicBuffer _atomicBuffer;
+    aeron::concurrent::ringbuffer::OneToOneRingBuffer _ringBuffer;
 };
 
 // RAII wrapper for Aeron Client
