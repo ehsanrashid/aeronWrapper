@@ -29,16 +29,16 @@ AeronException::AeronException(const std::string& message)
 
 // Helper to get data as string
 std::string FragmentData::as_string() const {
-    return std::string(reinterpret_cast<const char*>(_buffer.buffer()), _length);
+    return std::string(reinterpret_cast<const char*>(buffer.buffer()), length);
 }
 
 // Helper to get data as specific type
 template <typename T>
 const T& FragmentData::as() const {
-    if (_length < sizeof(T)) {
+    if (length < sizeof(T)) {
         throw AeronException("Fragment too small for requested type");
     }
-    return *reinterpret_cast<const T*>(_buffer.buffer());
+    return *reinterpret_cast<const T*>(buffer.buffer());
 }
 
 Publication::Publication(std::shared_ptr<aeron::Publication> pub,

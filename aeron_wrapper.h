@@ -52,10 +52,10 @@ class Aeron;
 
 // Fragment handler with metadata
 struct FragmentData {
-    const aeron::concurrent::AtomicBuffer& _buffer;
-    aeron::util::index_t _length;
-    aeron::util::index_t _offset;
-    const aeron::Header& _header;
+    const aeron::concurrent::AtomicBuffer& buffer;
+    aeron::util::index_t length;
+    aeron::util::index_t offset;
+    const aeron::Header& header;
 
     // Helper to get data as string
     std::string as_string() const;
@@ -228,8 +228,8 @@ class RingBuffer {
             isWritten =
                 _ringBuffer.write(1,
                                    const_cast<aeron::concurrent::AtomicBuffer&>(
-                                       fragmentData._buffer),
-                                   fragmentData._offset, fragmentData._length);
+                                       fragmentData.buffer),
+                                   fragmentData.offset, fragmentData.length);
             if (isWritten) {
                 return isWritten;
             }
