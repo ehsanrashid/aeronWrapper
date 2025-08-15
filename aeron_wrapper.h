@@ -52,10 +52,10 @@ class Aeron;
 
 // Fragment handler with metadata
 struct FragmentData {
-    const aeron::concurrent::AtomicBuffer& buffer;
+    aeron::concurrent::AtomicBuffer atomicBuffer;
     aeron::util::index_t length;
     aeron::util::index_t offset;
-    const aeron::Header& header;
+    aeron::Header header;
 
     // Helper to get data as string
     std::string as_string() const;
@@ -66,26 +66,18 @@ struct FragmentData {
 };
 
 using FragmentHandler = std::function<void(const FragmentData& fragment)>;
-using ReadHandler = std::function<bool(int8_t, char*, int32_t, int32_t, int32_t)>;
+using ReadHandler =
+    std::function<bool(int8_t, char*, int32_t, int32_t, int32_t)>;
 // Connection state callback
 using ConnectionHandler = std::function<void(bool connected)>;
 
 // Publication wrapper with enhanced functionality
 class Publication {
-   private:
-    std::shared_ptr<aeron::Publication> publication_;
-    std::string channel_;
-    std::int32_t streamId_;
-    ConnectionHandler connectionHandler_;
-    std::atomic<bool> wasConnected_{false};
-
-    friend class Aeron;
-
-    Publication(std::shared_ptr<aeron::Publication> pub,
+   public:
+    Publication(std::shared_ptr<aeron::Publication> publication,
                 const std::string& channel, std::int32_t streamId,
                 const ConnectionHandler& connectionHandler = nullptr);
 
-   public:
     ~Publication() = default;
 
     // Non-copyable but movable
@@ -133,24 +125,23 @@ class Publication {
 
    private:
     void check_connection_state();
+
+    std::shared_ptr<aeron::Publication> _publication;
+    std::string _channel;
+    std::int32_t _streamId;
+    ConnectionHandler _connectionHandler;
+    std::atomic<bool> _wasConnected{false};
+
+    friend class Aeron;
 };
 
 // Subscription wrapper with enhanced functionality
 class Subscription {
-   private:
-    std::shared_ptr<aeron::Subscription> subscription_;
-    std::string channel_;
-    std::int32_t streamId_;
-    ConnectionHandler connectionHandler_;
-    std::atomic<bool> wasConnected_{false};
-
-    friend class Aeron;
-
-    Subscription(std::shared_ptr<aeron::Subscription> sub,
+   public:
+    Subscription(std::shared_ptr<aeron::Subscription> subscription,
                  const std::string& channel, std::int32_t streamId,
                  const ConnectionHandler& connectionHandler = nullptr);
 
-   public:
     ~Subscription() = default;
 
     // Non-copyable but movable
@@ -161,10 +152,6 @@ class Subscription {
 
     // Continuous polling in background thread
     class BackgroundPoller {
-       private:
-        std::unique_ptr<std::thread> pollThread_;
-        std::atomic<bool> isRunning_{false};
-
        public:
         BackgroundPoller(Subscription* subscription,
                          const FragmentHandler& fragmentHandler);
@@ -180,6 +167,10 @@ class Subscription {
         void stop();
 
         bool is_running() const;
+
+       private:
+        std::unique_ptr<std::thread> _pollThread;
+        std::atomic<bool> _isRunning{false};
     };
 
     // Polling methods
@@ -195,7 +186,7 @@ class Subscription {
         const FragmentHandler& fragmentHandler);
 
     // handler to be used in poll
-    aeron::fragment_handler_t fragHandler(
+    aeron::fragment_handler_t fragment_handler(
         const FragmentHandler& fragmentHandler);
 
     // Status methods
@@ -212,6 +203,14 @@ class Subscription {
 
    private:
     void check_connection_state();
+
+    std::shared_ptr<aeron::Subscription> _subscription;
+    std::string _channel;
+    std::int32_t _streamId;
+    ConnectionHandler _connectionHandler;
+    std::atomic<bool> _wasConnected{false};
+
+    friend class Aeron;
 };
 
 class RingBuffer {
@@ -219,51 +218,51 @@ class RingBuffer {
     RingBuffer(size_t size)
         : _buffer(size + TRAILER_LENGTH),
           _atomicBuffer(_buffer.data(), size + TRAILER_LENGTH),
-          _ringBuffer(_atomicBuffer) {}
+          _ringBuffer(_atomicBuffer),
+          _backoffIdleStrategy(100, 1000) {}
+
+    ~RingBuffer() {}
+
     bool write_buffer(const aeron_wrapper::FragmentData& fragmentData) {
-        aeron::concurrent::BackoffIdleStrategy idleStrategy(100, 1000);
         bool isWritten = false;
         auto start = std::chrono::high_resolution_clock::now();
         while (!isWritten) {
             isWritten =
                 _ringBuffer.write(1,
-                                   const_cast<aeron::concurrent::AtomicBuffer&>(
-                                       fragmentData.buffer),
-                                   fragmentData.offset, fragmentData.length);
-            if (isWritten) {
-                return isWritten;
-            }
+                                  const_cast<aeron::concurrent::AtomicBuffer&>(
+                                      fragmentData.atomicBuffer),
+                                  fragmentData.offset, fragmentData.length);
+            if (isWritten) break;
+
             if (std::chrono::high_resolution_clock::now() - start >=
                 std::chrono::microseconds(50)) {
-                std::cerr << "retry timeout" << std::endl;
-                return isWritten;
+                std::cerr << "Retry timeout" << std::endl;
+                break;
             }
-            idleStrategy.idle();
+            _backoffIdleStrategy.idle();
         }
+        return isWritten;
     }
-    bool read_buffer(ReadHandler readHandler) {
+
+    void read_buffer(ReadHandler readHandler) {
         _ringBuffer.read([&](int8_t msgType,
-                              aeron::concurrent::AtomicBuffer& atomicBuffer,
-                              int32_t offset, int32_t length) {
-            return readHandler(msgType, reinterpret_cast<char*>(atomicBuffer.buffer()), offset, length, atomicBuffer.capacity());
+                             aeron::concurrent::AtomicBuffer& atomicBuffer,
+                             int32_t offset, int32_t length) {
+            return readHandler(msgType,
+                               reinterpret_cast<char*>(atomicBuffer.buffer()),
+                               offset, length, atomicBuffer.capacity());
         });
     }
-    ~RingBuffer()
-    {
 
-    }
    private:
     std::vector<uint8_t> _buffer;
     aeron::concurrent::AtomicBuffer _atomicBuffer;
     aeron::concurrent::ringbuffer::OneToOneRingBuffer _ringBuffer;
+    aeron::concurrent::BackoffIdleStrategy _backoffIdleStrategy;
 };
 
 // RAII wrapper for Aeron Client
 class Aeron {
-   private:
-    std::shared_ptr<aeron::Aeron> aeron_;
-    std::atomic<bool> isRunning_{false};
-
    public:
     // Constructor with optional context configuration
     explicit Aeron(const std::string& aeronDir = "");
@@ -294,9 +293,9 @@ class Aeron {
         const std::string& channel, std::int32_t streamId,
         const ConnectionHandler& connectionHandler = nullptr);
 
-    // ids to track current publication/subscription
-    int64_t subscription_id;
-    int64_t publication_id;
+   private:
+    std::shared_ptr<aeron::Aeron> _aeron;
+    std::atomic<bool> _isRunning{false};
 };
 
 }  // namespace aeron_wrapper
