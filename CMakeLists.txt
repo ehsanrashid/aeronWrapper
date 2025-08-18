@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Collect source files
 file(GLOB SOURCE_FILES "*.cpp")
-
+# Collect header files
 file(GLOB HEADERS "*.h")
 
 add_library(${PROJECT_NAME} ${SOURCE_FILES})
