@@ -52,7 +52,7 @@ class Aeron;
 
 // Fragment handler with metadata
 struct FragmentData {
-    const aeron::concurrent::AtomicBuffer& buffer;
+    const aeron::concurrent::AtomicBuffer& atomicBuffer;
     aeron::util::index_t length;
     aeron::util::index_t offset;
     const aeron::Header& header;
@@ -73,11 +73,11 @@ using ConnectionHandler = std::function<void(bool connected)>;
 // Publication wrapper with enhanced functionality
 class Publication {
    private:
-    std::shared_ptr<aeron::Publication> publication_;
-    std::string channel_;
-    std::int32_t streamId_;
-    ConnectionHandler connectionHandler_;
-    std::atomic<bool> wasConnected_{false};
+    std::shared_ptr<aeron::Publication> _publication;
+    std::string _channel;
+    std::int32_t _streamId;
+    ConnectionHandler _connectionHandler;
+    std::atomic<bool> _wasConnected{false};
 
     friend class Aeron;
 
@@ -138,11 +138,11 @@ class Publication {
 // Subscription wrapper with enhanced functionality
 class Subscription {
    private:
-    std::shared_ptr<aeron::Subscription> subscription_;
-    std::string channel_;
-    std::int32_t streamId_;
-    ConnectionHandler connectionHandler_;
-    std::atomic<bool> wasConnected_{false};
+    std::shared_ptr<aeron::Subscription> _subscription;
+    std::string _channel;
+    std::int32_t _streamId;
+    ConnectionHandler _connectionHandler;
+    std::atomic<bool> _wasConnected{false};
 
     friend class Aeron;
 
@@ -162,8 +162,8 @@ class Subscription {
     // Continuous polling in background thread
     class BackgroundPoller {
        private:
-        std::unique_ptr<std::thread> pollThread_;
-        std::atomic<bool> isRunning_{false};
+        std::unique_ptr<std::thread> _pollThread;
+        std::atomic<bool> _isRunning{false};
 
        public:
         BackgroundPoller(Subscription* subscription,
@@ -219,16 +219,16 @@ class RingBuffer {
     RingBuffer(size_t size)
         : _buffer(size + TRAILER_LENGTH),
           _atomicBuffer(_buffer.data(), size + TRAILER_LENGTH),
-          _ringBuffer(_atomicBuffer) {}
+          _ringBuffer(_atomicBuffer),
+          _backoffIdleStrategy(100, 1000){}
     bool write_buffer(const aeron_wrapper::FragmentData& fragmentData) {
-        aeron::concurrent::BackoffIdleStrategy idleStrategy(100, 1000);
         bool isWritten = false;
         auto start = std::chrono::high_resolution_clock::now();
         while (!isWritten) {
             isWritten =
                 _ringBuffer.write(1,
                                    const_cast<aeron::concurrent::AtomicBuffer&>(
-                                       fragmentData.buffer),
+                                       fragmentData.atomicBuffer),
                                    fragmentData.offset, fragmentData.length);
             if (isWritten) {
                 return isWritten;
@@ -238,7 +238,7 @@ class RingBuffer {
                 std::cerr << "retry timeout" << std::endl;
                 return isWritten;
             }
-            idleStrategy.idle();
+            _backoffIdleStrategy.idle();
         }
     }
     bool read_buffer(ReadHandler readHandler) {
@@ -256,13 +256,14 @@ class RingBuffer {
     std::vector<uint8_t> _buffer;
     aeron::concurrent::AtomicBuffer _atomicBuffer;
     aeron::concurrent::ringbuffer::OneToOneRingBuffer _ringBuffer;
+    aeron::concurrent::BackoffIdleStrategy _backoffIdleStrategy;
 };
 
 // RAII wrapper for Aeron Client
 class Aeron {
    private:
-    std::shared_ptr<aeron::Aeron> aeron_;
-    std::atomic<bool> isRunning_{false};
+    std::shared_ptr<aeron::Aeron> _aeron;
+    std::atomic<bool> _isRunning{false};
 
    public:
     // Constructor with optional context configuration
