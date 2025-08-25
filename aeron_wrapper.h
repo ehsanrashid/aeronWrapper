@@ -13,13 +13,11 @@
 #include <vector>
 
 // Aeron C++ headers
-#include <concurrent/BackOffIdleStrategy.h>
-
 #include "Aeron.h"
 #include "concurrent/AgentRunner.h"
 #include "concurrent/AtomicBuffer.h"
+#include "concurrent/BackOffIdleStrategy.h"
 #include "concurrent/ringbuffer/OneToOneRingBuffer.h"
-#include "util/Index.h"
 
 constexpr auto TRAILER_LENGTH =
     aeron::concurrent::ringbuffer::RingBufferDescriptor::TRAILER_LENGTH;
