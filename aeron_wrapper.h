@@ -278,7 +278,6 @@ class Aeron final {
 
     // Movable
     Aeron(Aeron&& aeron) noexcept;
-
     Aeron& operator=(Aeron&& aeron) noexcept;
 
     void close();
