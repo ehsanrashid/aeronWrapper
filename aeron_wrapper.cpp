@@ -429,8 +429,8 @@ aeron::fragment_handler_t Subscription::fragHandler(const FragmentHandler& fragm
     {
         FragmentData fragmentData{
             buffer,
-            offset,
             length,
+            offset,
             header
         };
         fragmentHandler(fragmentData);
