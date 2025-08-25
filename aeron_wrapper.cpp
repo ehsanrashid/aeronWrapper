@@ -1,11 +1,14 @@
 #include "aeron_wrapper.h"
+
 #include "FragmentAssembler.h"
 
 namespace aeron_wrapper {
 
-namespace{
-    static constexpr std::chrono::duration<long, std::milli> SLEEP_IDLE_MS(1);
-}
+namespace {
+constexpr std::chrono::duration<long, std::milli> SLEEP_IDLE_MS(1);
+
+}  // namespace
+
 // Get publication constants as string for debugging
 std::string pubresult_to_string(PublicationResult pubResult) {
     switch (pubResult) {
@@ -31,7 +34,8 @@ AeronException::AeronException(const std::string& message)
 
 // Helper to get data as string
 std::string FragmentData::as_string() const {
-    return std::string(reinterpret_cast<const char*>(atomicBuffer.buffer()), length);
+    return std::string(reinterpret_cast<const char*>(atomicBuffer.buffer()),
+                       length);
 }
 
 // Helper to get data as specific type
@@ -184,19 +188,19 @@ void Publication::check_connection_state() {
 Subscription::BackgroundPoller::BackgroundPoller(
     Subscription* subscription, const FragmentHandler& fragmentHandler) {
     _isRunning = true;
-    _pollThread = std::make_unique<std::thread>([this, subscription,
-                                                 fragmentHandler]() {
-        aeron::SleepingIdleStrategy sleepStrategy(SLEEP_IDLE_MS);
-        while (_isRunning) {
-            try {
-                int fragments = subscription->poll(fragmentHandler, 10);
-                sleepStrategy.idle(fragments);
-            } catch (const std::exception&) {
-                // Log error in real implementation
-                break;
+    _pollThread =
+        std::make_unique<std::thread>([this, subscription, fragmentHandler]() {
+            aeron::SleepingIdleStrategy sleepStrategy(SLEEP_IDLE_MS);
+            while (_isRunning) {
+                try {
+                    int fragments = subscription->poll(fragmentHandler, 10);
+                    sleepStrategy.idle(fragments);
+                } catch (const std::exception&) {
+                    // Log error in real implementation
+                    break;
+                }
             }
-        }
-    });
+        });
 }
 
 Subscription::BackgroundPoller::~BackgroundPoller() { stop(); }
@@ -228,9 +232,10 @@ int Subscription::poll(const FragmentHandler& fragmentHandler,
     if (!_subscription) {
         return 0;
     }
-    aeron::FragmentAssembler fragmentAssembler(fragHandler(fragmentHandler));
-    aeron::fragment_handler_t handler = fragmentAssembler.handler();
-    return _subscription->poll(handler, fragmentLimit);
+    aeron::FragmentAssembler fragmentAssembler(
+        fragment_handler(fragmentHandler));
+
+    return _subscription->poll(fragmentAssembler.handler(), fragmentLimit);
 }
 
 // Block poll - polls until at least one message or timeout
@@ -423,18 +428,11 @@ std::unique_ptr<Subscription> Aeron::create_subscription(
     }
 }
 
-aeron::fragment_handler_t Subscription::fragHandler(const FragmentHandler& fragmentHandler){
-    return  [&](const aeron::AtomicBuffer &buffer,
-               std::int32_t offset,
-               std::int32_t length,
-               const aeron::Header &header)
-    {
-        FragmentData fragmentData{
-            buffer,
-            length,
-            offset,
-            header
-        };
+aeron::fragment_handler_t Subscription::fragment_handler(
+    const FragmentHandler& fragmentHandler) {
+    return [&](const aeron::AtomicBuffer& buffer, std::int32_t offset,
+               std::int32_t length, const aeron::Header& header) {
+        FragmentData fragmentData{buffer, length, offset, header};
         fragmentHandler(fragmentData);
     };
 }
