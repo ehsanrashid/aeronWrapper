@@ -13,8 +13,8 @@ cmake-build-release/
 *.dll
 
 # Compiled Static libraries
-*.a
-*.lib
+#*.a
+#*.lib
 
 # Executables
 *.exe
@@ -28,6 +28,7 @@ Makefile
 
 # IDE files
 .vscode/
+.vs/
 .idea/
 *.swp
 *.swo
