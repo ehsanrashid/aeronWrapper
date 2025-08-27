@@ -50,10 +50,10 @@ class Aeron;
 
 // Fragment handler with metadata
 struct FragmentData final {
-    const aeron::concurrent::AtomicBuffer& atomicBuffer;
+    aeron::concurrent::AtomicBuffer atomicBuffer;
     aeron::util::index_t length;
     aeron::util::index_t offset;
-    const aeron::Header& header;
+    aeron::Header header;
 
     // Helper to get data as string
     std::string as_string() const;
