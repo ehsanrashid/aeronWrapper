@@ -19,9 +19,6 @@
 #include "concurrent/BackOffIdleStrategy.h"
 #include "concurrent/ringbuffer/OneToOneRingBuffer.h"
 
-constexpr auto TRAILER_LENGTH =
-    aeron::concurrent::ringbuffer::RingBufferDescriptor::TRAILER_LENGTH;
-
 namespace aeron_wrapper {
 
 // Publication result enum for better error handling
@@ -215,13 +212,17 @@ class Subscription final {
 
 class RingBuffer final {
    public:
+    static constexpr auto TRAILER_LENGTH =
+        aeron::concurrent::ringbuffer::RingBufferDescriptor::TRAILER_LENGTH;
+
     RingBuffer(size_t size)
         : _buffer(size + TRAILER_LENGTH),
           _atomicBuffer(_buffer.data(), size + TRAILER_LENGTH),
-          _ringBuffer(_atomicBuffer),
-          _backoffIdleStrategy(100, 1000) {}
+          _ringBuffer(_atomicBuffer) {}
 
     bool write_buffer(const aeron_wrapper::FragmentData& fragmentData) {
+        static aeron::concurrent::BackoffIdleStrategy backoffIdleStrategy(100,
+                                                                          1000);
         bool isWritten = false;
         auto start = std::chrono::high_resolution_clock::now();
         while (!isWritten) {
@@ -231,12 +232,13 @@ class RingBuffer final {
                                       fragmentData.atomicBuffer),
                                   fragmentData.offset, fragmentData.length);
             if (isWritten) break;
+
             if (std::chrono::high_resolution_clock::now() - start >=
                 std::chrono::microseconds(50)) {
                 std::cerr << "retry timeout" << std::endl;
                 break;
             }
-            _backoffIdleStrategy.idle();
+            backoffIdleStrategy.idle();
         }
         return isWritten;
     }
@@ -257,7 +259,6 @@ class RingBuffer final {
     std::vector<uint8_t> _buffer;
     aeron::concurrent::AtomicBuffer _atomicBuffer;
     aeron::concurrent::ringbuffer::OneToOneRingBuffer _ringBuffer;
-    aeron::concurrent::BackoffIdleStrategy _backoffIdleStrategy;
 };
 
 // RAII wrapper for Aeron Client
@@ -284,7 +285,7 @@ class Aeron final {
 
     bool is_running() const;
 
-    std::shared_ptr<aeron::Aeron> get_aeron() const;
+    std::shared_ptr<aeron::Aeron> aeron() const;
 
     // Factory methods
     std::unique_ptr<Publication> create_publication(

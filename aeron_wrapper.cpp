@@ -332,7 +332,7 @@ void Aeron::close() {
 
 bool Aeron::is_running() const { return _isRunning; }
 
-std::shared_ptr<aeron::Aeron> Aeron::get_aeron() const { return _aeron; }
+std::shared_ptr<aeron::Aeron> Aeron::aeron() const { return _aeron; }
 
 // Implementation of Aeron factory methods
 
