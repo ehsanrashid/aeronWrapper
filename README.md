@@ -24,10 +24,12 @@ A modern C++17 wrapper for the [Aeron](https://github.com/aeron-io/aeron) high-p
 ### Build Instructions
 
 ```bash
-mkdir build && cd build
-cmake -S .. -B . -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=<path_to_install>
-cmake --build build -j$(nproc)
-cmake --install build
+#if build exists then run this command first:
+rm -rf build && mkdir build && cd build
+#else:
+cmake -S .. -B . -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=<path_to_wrapper>
+cmake --build . -j$(nproc)
+cmake --install .
 ```
 
 The build system automatically fetches and builds Aeron from the official repository.
