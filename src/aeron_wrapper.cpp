@@ -229,9 +229,8 @@ int Subscription::poll(const FragmentHandler& fragmentHandler,
                        int fragmentLimit) noexcept {
     check_connection_state();
 
-    if (!_subscription) {
-        return 0;
-    }
+    if (!_subscription) return 0;
+
     aeron::FragmentAssembler fragmentAssembler(
         fragment_handler(fragmentHandler));
 
@@ -246,9 +245,8 @@ int Subscription::block_poll(const FragmentHandler& fragmentHandler,
 
     while (std::chrono::steady_clock::now() - start < timeout) {
         int fragments = poll(fragmentHandler, fragmentLimit);
-        if (fragments > 0) {
-            return fragments;
-        }
+        if (fragments > 0) return fragments;
+
         std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
     return 0;
@@ -262,9 +260,9 @@ Subscription::start_background_polling(
 
 aeron::fragment_handler_t Subscription::fragment_handler(
     const FragmentHandler& fragmentHandler) noexcept {
-    return [&](const aeron::AtomicBuffer& buffer, std::int32_t offset,
+    return [&](const aeron::AtomicBuffer& atomicBuffer, std::int32_t offset,
                std::int32_t length, const aeron::Header& header) {
-        FragmentData fragmentData{buffer, length, offset, header};
+        FragmentData fragmentData{atomicBuffer, length, offset, header};
         fragmentHandler(fragmentData);
     };
 }
