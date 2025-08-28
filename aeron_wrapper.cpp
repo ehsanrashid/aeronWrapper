@@ -185,7 +185,7 @@ Subscription::BackgroundPoller::BackgroundPoller(
     _isRunning = true;
     _pollThread =
         std::make_unique<std::thread>([this, subscription, fragmentHandler]() {
-            aeron::SleepingIdleStrategy sleepingIdleStrategy(
+            static aeron::SleepingIdleStrategy sleepingIdleStrategy(
                 std::chrono::duration<long, std::milli>(1));
             while (_isRunning) {
                 try {
