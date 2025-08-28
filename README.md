@@ -27,7 +27,7 @@ A modern C++17 wrapper for the [Aeron](https://github.com/aeron-io/aeron) high-p
 #if build exists then run this command first:
 rm -rf build && mkdir build && cd build
 #else:
-cmake -S .. -B . -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=<path_to_wrapper>
+cmake -S .. -B . -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=<path_to_aeronWrapper/install>
 cmake --build . -j$(nproc)
 cmake --install .
 ```
@@ -50,7 +50,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 To compile your project
 
 ```run
-cmake .. -DCMAKE_PREFIX_PATH=<path_to_install_of_aeronWrapper>
+cmake .. -DCMAKE_INSTALL_PREFIX=<path_to_aeronWrapper/install>
 ```
 
 
@@ -212,18 +212,19 @@ Enum class representing the result of a publication attempt:
 Structure containing received message data and metadata:
 
 ```cpp
-struct FragmentData {
-    const std::uint8_t* buffer;    // Raw message data
-    std::size_t length;            // Message length
-    std::int64_t position;         // Stream position
-    std::int32_t sessionId;        // Session ID
-    std::int32_t streamId;         // Stream ID
-    std::int32_t termId;           // Term ID
-    std::int32_t termOffset;       // Term offset
-    
-    // Helper methods
+// Fragment handler with metadata
+struct FragmentData final {
+    aeron::concurrent::AtomicBuffer atomicBuffer;
+    aeron::util::index_t length;
+    aeron::util::index_t offset;
+    aeron::Header header;
+
+    // Helper to get data as string
     std::string as_string() const;
-    template<typename T> const T& as() const;
+
+    // Helper to get data as specific type
+    template <typename T>
+    const T& as() const;
 };
 ```
 
