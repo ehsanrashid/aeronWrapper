@@ -32,4 +32,4 @@ set_target_properties(aeronWrapper::aeron_client PROPERTIES
 
 target_link_libraries(aeronWrapper::aeronWrapper INTERFACE aeronWrapper::aeron_client)
 
-check_required_components(aeronWrapper) 
+check_required_components(aeronWrapper)
