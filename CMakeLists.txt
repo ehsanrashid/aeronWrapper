@@ -49,11 +49,7 @@ target_include_directories(${PROJECT_NAME}
         ${AERON_DRIVER_C_INCLUDE_DIR}
 )
 
-# Link against Aeron libraries (PUBLIC to propagate to dependents)
-target_link_libraries(${PROJECT_NAME} PUBLIC
-    aeron_driver
-    aeron_client
-)
+# No PUBLIC/INTERFACE link to Aeron here; linkage is injected via Config file at find_package time
 
 # Installation
 install(TARGETS ${PROJECT_NAME}
@@ -77,19 +73,10 @@ if (EXISTS ${AERON_CLIENT_INCLUDE_DIR})
     )
 endif()
 
-# Install Aeron libraries that were built via FetchContent
-# This ensures downstreams can link without separately installing Aeron
+# Install Aeron client library that was built via FetchContent
+# (Do not export it; consumers will get full-path linkage from the Config file)
 if (TARGET aeron_client)
     install(TARGETS aeron_client
-            EXPORT aeronWrapperTargets
-            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    )
-endif()
-if (TARGET aeron_driver)
-    install(TARGETS aeron_driver
-            EXPORT aeronWrapperTargets
             LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
             RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
