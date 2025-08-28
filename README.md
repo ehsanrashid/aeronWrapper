@@ -25,8 +25,9 @@ A modern C++17 wrapper for the [Aeron](https://github.com/aeron-io/aeron) high-p
 
 ```bash
 #if build exists then run this command first:
-rm -rf build && mkdir build && cd build
+rm -rf build
 #else:
+mkdir build && cd build
 cmake -S .. -B . -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=<path_to_aeronWrapper/install>
 cmake --build . -j$(nproc)
 cmake --install .
