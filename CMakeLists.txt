@@ -24,9 +24,9 @@ set(CXX_WARNINGS_AS_ERRORS OFF CACHE BOOL "Disable warnings as errors")
 FetchContent_MakeAvailable(aeron)
 
 # Collect source files
-file(GLOB SOURCES "src/*.cpp")
+file(GLOB SOURCES CONFIGURE_DEPENDS src/*.cpp)
 # Collect header files
-file(GLOB HEADERS "src/*.h")
+file(GLOB HEADERS CONFIGURE_DEPENDS src/*.h)
 
 add_library(${PROJECT_NAME} ${SOURCES})
 
