@@ -14,9 +14,7 @@
 
 // Aeron C++ headers
 #include "Aeron.h"
-#include "concurrent/AgentRunner.h"
 #include "concurrent/AtomicBuffer.h"
-#include "concurrent/BackOffIdleStrategy.h"
 #include "concurrent/ringbuffer/OneToOneRingBuffer.h"
 
 namespace aeron_wrapper {
@@ -32,12 +30,12 @@ enum class PublicationResult : int8_t {
 };
 
 // Get publication constants as string for debugging
-std::string pubresult_to_string(PublicationResult pubResult);
+std::string pubresult_to_string(PublicationResult pubResult) noexcept;
 
 // Exception classes
 class AeronException : public std::runtime_error {
    public:
-    explicit AeronException(const std::string& message);
+    explicit AeronException(const std::string& message) noexcept;
 };
 
 // Forward declarations
@@ -53,7 +51,7 @@ struct FragmentData final {
     aeron::Header header;
 
     // Helper to get data as string
-    std::string as_string() const;
+    std::string as_string() const noexcept;
 
     // Helper to get data as specific type
     template <typename T>
@@ -79,10 +77,10 @@ class Publication final {
 
     Publication(std::shared_ptr<aeron::Publication> pub,
                 const std::string& channel, std::int32_t streamId,
-                const ConnectionHandler& connectionHandler = nullptr);
+                const ConnectionHandler& connectionHandler = nullptr) noexcept;
 
    public:
-    ~Publication() = default;
+    ~Publication() noexcept = default;
 
     // Non-copyable but movable
     Publication(const Publication&) = delete;
@@ -91,44 +89,47 @@ class Publication final {
     Publication& operator=(Publication&&) = default;
 
     // Publishing methods with better error handling
-    PublicationResult offer(const std::uint8_t* buffer, std::size_t length);
+    PublicationResult offer(const std::uint8_t* buffer,
+                            std::size_t length) noexcept;
 
-    PublicationResult offer(const std::string& message);
+    PublicationResult offer(const std::string& message) noexcept;
 
     template <typename T>
-    PublicationResult offer(const T& data);
+    PublicationResult offer(const T& data) noexcept;
 
     // Offer with retry logic
     PublicationResult offer_with_retry(
         const std::uint8_t* buffer, std::size_t length, int maxRetries = 3,
-        std::chrono::milliseconds retryDelay = std::chrono::milliseconds(1));
+        std::chrono::milliseconds retryDelay =
+            std::chrono::milliseconds(1)) noexcept;
 
     PublicationResult offer_with_retry(const std::string& message,
-                                       int maxRetries = 3);
+                                       int maxRetries = 3) noexcept;
 
     // Synchronous publish (blocks until success or failure)
-    bool publish_sync(
-        const std::uint8_t* buffer, std::size_t length,
-        std::chrono::milliseconds timeout = std::chrono::milliseconds(5000));
+    bool publish_sync(const std::uint8_t* buffer, std::size_t length,
+                      std::chrono::milliseconds timeout =
+                          std::chrono::milliseconds(5000)) noexcept;
 
-    bool publish_sync(
-        const std::string& message,
-        std::chrono::milliseconds timeout = std::chrono::milliseconds(5000));
+    bool publish_sync(const std::string& message,
+                      std::chrono::milliseconds timeout =
+                          std::chrono::milliseconds(5000)) noexcept;
 
     // Status methods
-    bool is_connected() const;
+    bool is_connected() const noexcept;
 
-    bool is_closed() const;
+    bool is_closed() const noexcept;
 
-    std::int64_t position() const;
+    std::int64_t position() const noexcept;
 
-    std::int32_t session_id() const;
+    std::int32_t session_id() const noexcept;
 
-    std::int32_t stream_id() const;
-    const std::string& channel() const;
+    std::int32_t stream_id() const noexcept;
+
+    const std::string& channel() const noexcept;
 
    private:
-    void check_connection_state();
+    void check_connection_state() noexcept;
 };
 
 // Subscription wrapper with enhanced functionality
@@ -144,10 +145,10 @@ class Subscription final {
 
     Subscription(std::shared_ptr<aeron::Subscription> sub,
                  const std::string& channel, std::int32_t streamId,
-                 const ConnectionHandler& connectionHandler = nullptr);
+                 const ConnectionHandler& connectionHandler = nullptr) noexcept;
 
    public:
-    ~Subscription() = default;
+    ~Subscription() noexcept = default;
 
     // Non-copyable but movable
     Subscription(const Subscription&) = delete;
@@ -163,9 +164,9 @@ class Subscription final {
 
        public:
         BackgroundPoller(Subscription* subscription,
-                         const FragmentHandler& fragmentHandler);
+                         const FragmentHandler& fragmentHandler) noexcept;
 
-        ~BackgroundPoller();
+        ~BackgroundPoller() noexcept;
 
         // Non-copyable, non-movable
         BackgroundPoller(const BackgroundPoller&) = delete;
@@ -173,41 +174,43 @@ class Subscription final {
         BackgroundPoller(BackgroundPoller&&) = delete;
         BackgroundPoller& operator=(BackgroundPoller&&) = delete;
 
-        void stop();
+        void stop() noexcept;
 
-        bool is_running() const;
+        bool is_running() const noexcept;
     };
 
     // Polling methods
-    int poll(const FragmentHandler& fragmentHandler, int fragmentLimit = 10);
+    int poll(const FragmentHandler& fragmentHandler,
+             int fragmentLimit = 10) noexcept;
 
     // Block poll - polls until at least one message or timeout
     int block_poll(
         const FragmentHandler& fragmentHandler,
         std::chrono::milliseconds timeout = std::chrono::milliseconds(1000),
-        int fragmentLimit = 10);
+        int fragmentLimit = 10) noexcept;
 
     std::unique_ptr<BackgroundPoller> start_background_polling(
-        const FragmentHandler& fragmentHandler);
+        const FragmentHandler& fragmentHandler) noexcept;
 
     // handler to be used in poll
     aeron::fragment_handler_t fragment_handler(
-        const FragmentHandler& fragmentHandler);
+        const FragmentHandler& fragmentHandler) noexcept;
 
     // Status methods
-    bool is_connected() const;
+    bool is_connected() const noexcept;
 
-    bool is_closed() const;
+    bool is_closed() const noexcept;
 
-    bool has_images() const;
+    bool has_images() const noexcept;
 
-    std::int32_t stream_id() const;
-    const std::string& channel() const;
+    std::int32_t stream_id() const noexcept;
 
-    std::size_t image_count() const;
+    const std::string& channel() const noexcept;
+
+    std::size_t image_count() const noexcept;
 
    private:
-    void check_connection_state();
+    void check_connection_state() noexcept;
 };
 
 class RingBuffer final {
@@ -215,43 +218,11 @@ class RingBuffer final {
     static constexpr auto TRAILER_LENGTH =
         aeron::concurrent::ringbuffer::RingBufferDescriptor::TRAILER_LENGTH;
 
-    RingBuffer(size_t size)
-        : _buffer(size + TRAILER_LENGTH),
-          _atomicBuffer(_buffer.data(), size + TRAILER_LENGTH),
-          _ringBuffer(_atomicBuffer) {}
+    RingBuffer(size_t size) noexcept;
 
-    bool write_buffer(const aeron_wrapper::FragmentData& fragmentData) {
-        static aeron::concurrent::BackoffIdleStrategy backoffIdleStrategy(100,
-                                                                          1000);
-        bool isWritten = false;
-        auto start = std::chrono::high_resolution_clock::now();
-        while (!isWritten) {
-            isWritten =
-                _ringBuffer.write(1,
-                                  const_cast<aeron::concurrent::AtomicBuffer&>(
-                                      fragmentData.atomicBuffer),
-                                  fragmentData.offset, fragmentData.length);
-            if (isWritten) break;
+    bool write_buffer(const aeron_wrapper::FragmentData& fragmentData) noexcept;
 
-            if (std::chrono::high_resolution_clock::now() - start >=
-                std::chrono::microseconds(50)) {
-                std::cerr << "retry timeout" << std::endl;
-                break;
-            }
-            backoffIdleStrategy.idle();
-        }
-        return isWritten;
-    }
-
-    void read_buffer(ReadHandler readHandler) {
-        _ringBuffer.read([&](int8_t msgType,
-                             aeron::concurrent::AtomicBuffer& atomicBuffer,
-                             int32_t offset, int32_t length) {
-            return readHandler(msgType,
-                               reinterpret_cast<char*>(atomicBuffer.buffer()),
-                               offset, length, atomicBuffer.capacity());
-        });
-    }
+    void read_buffer(ReadHandler readHandler) noexcept;
 
     ~RingBuffer() = default;
 
@@ -269,9 +240,9 @@ class Aeron final {
 
    public:
     // Constructor with optional context configuration
-    explicit Aeron(const std::string& aeronDir = "");
+    explicit Aeron(const std::string& aeronDir = "") noexcept;
 
-    ~Aeron();
+    ~Aeron() noexcept;
 
     // Non-copyable
     Aeron(const Aeron&) = delete;
@@ -281,11 +252,11 @@ class Aeron final {
     Aeron(Aeron&& aeron) noexcept;
     Aeron& operator=(Aeron&& aeron) noexcept;
 
-    void close();
+    void close() noexcept;
 
-    bool is_running() const;
+    bool is_running() const noexcept;
 
-    std::shared_ptr<aeron::Aeron> aeron() const;
+    std::shared_ptr<aeron::Aeron> aeron() const noexcept;
 
     // Factory methods
     std::unique_ptr<Publication> create_publication(
