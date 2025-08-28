@@ -4,11 +4,6 @@
 
 namespace aeron_wrapper {
 
-namespace {
-constexpr std::chrono::duration<long, std::milli> SLEEP_IDLE_MS(1);
-
-}  // namespace
-
 // Get publication constants as string for debugging
 std::string pubresult_to_string(PublicationResult pubResult) {
     switch (pubResult) {
@@ -190,11 +185,12 @@ Subscription::BackgroundPoller::BackgroundPoller(
     _isRunning = true;
     _pollThread =
         std::make_unique<std::thread>([this, subscription, fragmentHandler]() {
-            aeron::SleepingIdleStrategy sleepStrategy(SLEEP_IDLE_MS);
+            aeron::SleepingIdleStrategy sleepingIdleStrategy(
+                std::chrono::duration<long, std::milli>(1));
             while (_isRunning) {
                 try {
                     int fragments = subscription->poll(fragmentHandler, 10);
-                    sleepStrategy.idle(fragments);
+                    sleepingIdleStrategy.idle(fragments);
                 } catch (const std::exception&) {
                     // Log error in real implementation
                     break;
