@@ -25,9 +25,9 @@ A modern C++17 wrapper for the [Aeron](https://github.com/aeron-io/aeron) high-p
 
 ```bash
 mkdir build && cd build
-cmake ..
-make -j$(nproc)
-sudo make install #to install lib and header locally.
+cmake -S .. -B . -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=<path_to_install>
+cmake --build build -j$(nproc)
+cmake --install build
 ```
 
 The build system automatically fetches and builds Aeron from the official repository.
@@ -37,9 +37,20 @@ The build system automatically fetches and builds Aeron from the official reposi
 To use this wrapper in your own CMake project:
 
 ```cmake
-add_subdirectory(path/to/aeronWrapper)
-target_link_libraries(your_target PRIVATE aeronWrapper)
+find_package(aeronWrapper CONFIG REQUIRED)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    aeronWrapper::aeronWrapper
+    ...
+)
 ```
+
+To compile your project
+
+```run
+cmake .. -DCMAKE_PREFIX_PATH=<path_to_install_of_aeronWrapper>
+```
+
 
 ## Quick Start
 
