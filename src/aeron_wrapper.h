@@ -59,11 +59,11 @@ struct FragmentData final {
     const T& as() const;
 };
 
-using FragmentHandler = std::function<void(const FragmentData& fragment)>;
-using ReadHandler =
-    std::function<bool(int8_t, char*, int32_t, int32_t, int32_t)>;
+using FragmentHandler = std::function<void(const FragmentData&)>;
+using ReadHandler = std::function<bool(std::int8_t, char*, std::int32_t,
+                                       std::int32_t, std::int32_t)>;
 // Connection state callback
-using ConnectionHandler = std::function<void(bool connected)>;
+using ConnectionHandler = std::function<void(bool)>;
 
 // Publication wrapper with enhanced functionality
 class Publication final {
@@ -219,7 +219,7 @@ class RingBuffer final {
 
     RingBuffer(size_t size) noexcept;
 
-    bool write_buffer(const aeron_wrapper::FragmentData& fragmentData) noexcept;
+    bool write_buffer(const FragmentData& fragmentData) noexcept;
 
     void read_buffer(ReadHandler readHandler) noexcept;
 

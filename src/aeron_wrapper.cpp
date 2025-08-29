@@ -307,8 +307,7 @@ RingBuffer::RingBuffer(size_t size) noexcept
       _atomicBuffer(_buffer.data(), size + TRAILER_LENGTH),
       _ringBuffer(_atomicBuffer) {}
 
-bool RingBuffer::write_buffer(
-    const aeron_wrapper::FragmentData& fragmentData) noexcept {
+bool RingBuffer::write_buffer(const FragmentData& fragmentData) noexcept {
     static aeron::concurrent::BackoffIdleStrategy backoffIdleStrategy(100,
                                                                       1000);
     bool isWritten = false;
@@ -332,9 +331,9 @@ bool RingBuffer::write_buffer(
 }
 
 void RingBuffer::read_buffer(ReadHandler readHandler) noexcept {
-    _ringBuffer.read([&](int8_t msgType,
+    _ringBuffer.read([&](std::int8_t msgType,
                          aeron::concurrent::AtomicBuffer& atomicBuffer,
-                         int32_t offset, int32_t length) {
+                         std::int32_t offset, std::int32_t length) {
         return readHandler(msgType,
                            reinterpret_cast<char*>(atomicBuffer.buffer()),
                            offset, length, atomicBuffer.capacity());
