@@ -423,9 +423,8 @@ std::unique_ptr<Publication> Aeron::create_publication(
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
 
-        return std::unique_ptr<Publication>(new Publication(
-            std::move(publication), channel, streamId, connectionHandler));
-
+        return std::make_unique<Publication>(std::move(publication), channel,
+                                             streamId, connectionHandler);
     } catch (const std::exception& e) {
         throw AeronException("Failed to create publication: " +
                              std::string(e.what()));
@@ -467,9 +466,8 @@ std::unique_ptr<Subscription> Aeron::create_subscription(
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
 
-        return std::unique_ptr<Subscription>(new Subscription(
-            std::move(subscription), channel, streamId, connectionHandler));
-
+        return std::make_unique<Subscription>(std::move(subscription), channel,
+                                              streamId, connectionHandler);
     } catch (const std::exception& e) {
         throw AeronException("Failed to create subscription: " +
                              std::string(e.what()));
