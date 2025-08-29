@@ -1,5 +1,6 @@
 #include "aeron_wrapper.h"
 
+#include "Context.h"
 #include "FragmentAssembler.h"
 #include "concurrent/BackOffIdleStrategy.h"
 #include "concurrent/SleepingIdleStrategy.h"
