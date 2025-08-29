@@ -342,7 +342,7 @@ void RingBuffer::read_buffer(ReadHandler readHandler) noexcept {
 }
 
 // Constructor with optional context configuration
-Aeron::Aeron(const std::string& aeronDir) noexcept : _isRunning(false) {
+Aeron::Aeron(const std::string& aeronDir) : _isRunning(false) {
     aeron::Context context;
 
     if (!aeronDir.empty()) {

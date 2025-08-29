@@ -234,7 +234,7 @@ class RingBuffer final {
 class Aeron final {
    public:
     // Constructor with optional context configuration
-    explicit Aeron(const std::string& aeronDir = "") noexcept;
+    explicit Aeron(const std::string& aeronDir = "");
 
     ~Aeron() noexcept;
 
