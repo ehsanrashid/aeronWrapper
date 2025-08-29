@@ -83,7 +83,7 @@ PublicationResult Publication::offer(const std::uint8_t* buffer,
     aeron::concurrent::AtomicBuffer atomicBuffer(
         const_cast<std::uint8_t*>(buffer), length);
 
-    std::int64_t result = _publication->offer(
+    auto result = _publication->offer(
         atomicBuffer, 0, static_cast<aeron::util::index_t>(length));
 
     // Positive values indicate success (number of bytes written)
@@ -183,7 +183,7 @@ std::int32_t Publication::session_id() const noexcept {
 
 std::int32_t Publication::stream_id() const noexcept { return _streamId; }
 
-const std::string& Publication::channel() const noexcept { return _channel; }
+std::string_view Publication::channel() const noexcept { return _channel; }
 
 void Publication::check_connection_state() noexcept {
     if (_connectionHandler) {
@@ -200,14 +200,14 @@ Subscription::BackgroundPoller::BackgroundPoller(
     Subscription* subscription, FragmentHandler fragmentHandler) noexcept
     : _isRunning(true),
       _pollThread(std::make_unique<std::thread>([this, subscription,
-                                                 handler = std::move(
+                                                 fragmentHandler = std::move(
                                                      fragmentHandler)] {
           static aeron::concurrent::SleepingIdleStrategy sleepingIdleStrategy(
               std::chrono::milliseconds(1));
 
           while (_isRunning) {
               try {
-                  int fragments = subscription->poll(handler, 10);
+                  int fragments = subscription->poll(fragmentHandler, 10);
                   sleepingIdleStrategy.idle(fragments);
               } catch (const std::exception&) {
                   // TODO: Log error in real implementation
@@ -277,11 +277,11 @@ Subscription::start_background_polling(
 
 aeron::fragment_handler_t Subscription::fragment_handler(
     FragmentHandler fragmentHandler) noexcept {
-    return [handler = std::move(fragmentHandler)](
+    return [fragmentHandler = std::move(fragmentHandler)](
                const aeron::concurrent::AtomicBuffer& atomicBuffer,
                std::int32_t offset, std::int32_t length,
                const aeron::concurrent::logbuffer::Header& header) {
-        handler({atomicBuffer, length, offset, header});
+        fragmentHandler({atomicBuffer, length, offset, header});
     };
 }
 
@@ -300,7 +300,7 @@ bool Subscription::has_images() const noexcept {
 
 std::int32_t Subscription::stream_id() const noexcept { return _streamId; }
 
-const std::string& Subscription::channel() const noexcept { return _channel; }
+std::string_view Subscription::channel() const noexcept { return _channel; }
 
 std::size_t Subscription::image_count() const noexcept {
     return _subscription ? _subscription->imageCount() : 0;
@@ -346,7 +346,8 @@ bool RingBuffer::write_buffer(const FragmentData& fragmentData) noexcept {
 }
 
 void RingBuffer::read_buffer(ReadHandler readHandler) noexcept {
-    _ringBuffer.read([&](std::int8_t msgType,
+    _ringBuffer.read([readHandler = std::move(readHandler)](
+                         std::int8_t msgType,
                          aeron::concurrent::AtomicBuffer& atomicBuffer,
                          std::int32_t offset, std::int32_t length) {
         return readHandler(msgType,
@@ -409,13 +410,13 @@ std::unique_ptr<Publication> Aeron::create_publication(
     }
 
     try {
+        std::shared_ptr<aeron::Publication> publication;
+
         auto deadline =
             std::chrono::steady_clock::now() + std::chrono::seconds(5);
 
-        auto publicationId = _aeron->addPublication(channel, streamId);
-
         // Poll for publication to become available
-        std::shared_ptr<aeron::Publication> publication;
+        auto publicationId = _aeron->addPublication(channel, streamId);
         if (!wait_until(
                 [&] {
                     publication = _aeron->findPublication(publicationId);
@@ -454,12 +455,13 @@ std::unique_ptr<Subscription> Aeron::create_subscription(
     }
 
     try {
+        std::shared_ptr<aeron::Subscription> subscription;
+
         auto deadline =
             std::chrono::steady_clock::now() + std::chrono::seconds(5);
 
-        auto subscriptionId = _aeron->addSubscription(channel, streamId);
         // Poll for subscription to become available
-        std::shared_ptr<aeron::Subscription> subscription;
+        auto subscriptionId = _aeron->addSubscription(channel, streamId);
         if (!wait_until(
                 [&] {
                     subscription = _aeron->findSubscription(subscriptionId);

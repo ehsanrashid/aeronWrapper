@@ -8,6 +8,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <variant>
 #include <vector>
@@ -59,11 +60,11 @@ struct FragmentData final {
     const T& as() const;
 };
 
+// Connection state callback
+using ConnectionHandler = std::function<void(bool)>;
 using FragmentHandler = std::function<void(const FragmentData&)>;
 using ReadHandler = std::function<bool(std::int8_t, char*, std::int32_t,
                                        std::int32_t, std::int32_t)>;
-// Connection state callback
-using ConnectionHandler = std::function<void(bool)>;
 
 // Publication wrapper with enhanced functionality
 class Publication final {
@@ -118,7 +119,7 @@ class Publication final {
 
     std::int32_t stream_id() const noexcept;
 
-    const std::string& channel() const noexcept;
+    std::string_view channel() const noexcept;
 
    private:
     void check_connection_state() noexcept;
@@ -195,7 +196,7 @@ class Subscription final {
 
     std::int32_t stream_id() const noexcept;
 
-    const std::string& channel() const noexcept;
+    std::string_view channel() const noexcept;
 
     std::size_t image_count() const noexcept;
 

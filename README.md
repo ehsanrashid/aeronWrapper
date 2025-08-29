@@ -232,10 +232,10 @@ struct FragmentData final {
 #### Function Types
 
 ```cpp
+using ConnectionHandler = std::function<void(bool)>;
 using FragmentHandler = std::function<void(const FragmentData&)>;
 using ReadHandler = std::function<bool(std::int8_t, char*, std::int32_t,
                                        std::int32_t, std::int32_t)>;
-using ConnectionHandler = std::function<void(bool)>;
 ```
 
 ## Advanced Usage
