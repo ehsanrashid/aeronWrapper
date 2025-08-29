@@ -7,6 +7,20 @@
 
 namespace aeron_wrapper {
 
+namespace {
+
+template <typename Predicate>
+bool wait_until(Predicate&& pred, std::chrono::microseconds interval,
+                std::chrono::steady_clock::time_point deadline) noexcept {
+    while (std::chrono::steady_clock::now() < deadline) {
+        if (pred()) return true;
+        std::this_thread::sleep_for(interval);
+    }
+    return false;
+}
+
+}  // namespace
+
 // Get publication constants as string for debugging
 std::string pubresult_to_string(PublicationResult pubResult) noexcept {
     switch (pubResult) {
@@ -27,8 +41,8 @@ std::string pubresult_to_string(PublicationResult pubResult) noexcept {
     }
 }
 
-AeronError::AeronError(const std::string& message)
-    : std::runtime_error("AeronWrapper: " + message) {}
+AeronError::AeronError(const std::string& msg)
+    : std::runtime_error("AeronWrapper: " + msg) {}
 
 // Helper to get data as string
 std::string FragmentData::as_string() const noexcept {
@@ -47,11 +61,11 @@ const T& FragmentData::as() const {
 
 Publication::Publication(std::shared_ptr<aeron::Publication> publication,
                          const std::string& channel, std::int32_t streamId,
-                         const ConnectionHandler& connectionHandler) noexcept
+                         ConnectionHandler connectionHandler) noexcept
     : _publication(std::move(publication)),
       _channel(channel),
       _streamId(streamId),
-      _connectionHandler(connectionHandler),
+      _connectionHandler(std::move(connectionHandler)),
       _wasConnected(false) {}
 
 // Publishing methods with better error handling
@@ -183,24 +197,24 @@ void Publication::check_connection_state() noexcept {
 }
 
 Subscription::BackgroundPoller::BackgroundPoller(
-    Subscription* subscription, const FragmentHandler& fragmentHandler) noexcept
-    : _isRunning(false) {
-    _pollThread =
-        std::make_unique<std::thread>([this, subscription, fragmentHandler]() {
-            static aeron::SleepingIdleStrategy sleepingIdleStrategy(
-                std::chrono::duration<long, std::milli>(1));
-            _isRunning = true;
-            while (_isRunning) {
-                try {
-                    int fragments = subscription->poll(fragmentHandler, 10);
-                    sleepingIdleStrategy.idle(fragments);
-                } catch (const std::exception&) {
-                    // Log error in real implementation
-                    _isRunning = false;
-                }
-            }
-        });
-}
+    Subscription* subscription, FragmentHandler fragmentHandler) noexcept
+    : _isRunning(true),
+      _pollThread(std::make_unique<std::thread>([this, subscription,
+                                                 handler = std::move(
+                                                     fragmentHandler)] {
+          static aeron::concurrent::SleepingIdleStrategy sleepingIdleStrategy(
+              std::chrono::milliseconds(1));
+
+          while (_isRunning) {
+              try {
+                  int fragments = subscription->poll(handler, 10);
+                  sleepingIdleStrategy.idle(fragments);
+              } catch (const std::exception&) {
+                  // TODO: Log error in real implementation
+                  _isRunning = false;
+              }
+          }
+      })) {}
 
 Subscription::BackgroundPoller::~BackgroundPoller() noexcept { stop(); }
 
@@ -219,54 +233,55 @@ bool Subscription::BackgroundPoller::is_running() const noexcept {
 
 Subscription::Subscription(std::shared_ptr<aeron::Subscription> subscription,
                            const std::string& channel, std::int32_t streamId,
-                           const ConnectionHandler& connectionHandler) noexcept
+                           ConnectionHandler connectionHandler) noexcept
     : _subscription(std::move(subscription)),
       _channel(channel),
       _streamId(streamId),
-      _connectionHandler(connectionHandler),
+      _connectionHandler(std::move(connectionHandler)),
       _wasConnected(false) {}
 
 // Polling methods
-int Subscription::poll(const FragmentHandler& fragmentHandler,
+int Subscription::poll(FragmentHandler fragmentHandler,
                        int fragmentLimit) noexcept {
     check_connection_state();
 
     if (!_subscription) return 0;
 
     aeron::FragmentAssembler fragmentAssembler(
-        fragment_handler(fragmentHandler));
-
+        fragment_handler(std::move(fragmentHandler)));
     return _subscription->poll(fragmentAssembler.handler(), fragmentLimit);
 }
 
 // Block poll - polls until at least one message or timeout
-int Subscription::block_poll(const FragmentHandler& fragmentHandler,
+int Subscription::block_poll(FragmentHandler fragmentHandler,
                              std::chrono::milliseconds timeout,
                              int fragmentLimit) noexcept {
-    auto start = std::chrono::steady_clock::now();
+    int fragments = 0;
 
-    while (std::chrono::steady_clock::now() - start < timeout) {
-        int fragments = poll(fragmentHandler, fragmentLimit);
-        if (fragments > 0) return fragments;
+    auto deadline = std::chrono::steady_clock::now() + timeout;
+    wait_until(
+        [&] {
+            fragments = poll(std::move(fragmentHandler), fragmentLimit);
+            return fragments > 0;
+        },
+        std::chrono::microseconds(1), deadline);
 
-        std::this_thread::sleep_for(std::chrono::microseconds(100));
-    }
-    return 0;
+    return fragments;
 }
 
 std::unique_ptr<Subscription::BackgroundPoller>
 Subscription::start_background_polling(
-    const FragmentHandler& fragmentHandler) noexcept {
-    return std::make_unique<BackgroundPoller>(this, fragmentHandler);
+    FragmentHandler fragmentHandler) noexcept {
+    return std::make_unique<BackgroundPoller>(this, std::move(fragmentHandler));
 }
 
 aeron::fragment_handler_t Subscription::fragment_handler(
-    const FragmentHandler& fragmentHandler) noexcept {
-    return [&](const aeron::concurrent::AtomicBuffer& atomicBuffer,
+    FragmentHandler fragmentHandler) noexcept {
+    return [handler = std::move(fragmentHandler)](
+               const aeron::concurrent::AtomicBuffer& atomicBuffer,
                std::int32_t offset, std::int32_t length,
                const aeron::concurrent::logbuffer::Header& header) {
-        FragmentData fragmentData{atomicBuffer, length, offset, header};
-        fragmentHandler(fragmentData);
+        handler({atomicBuffer, length, offset, header});
     };
 }
 
@@ -342,13 +357,10 @@ void RingBuffer::read_buffer(ReadHandler readHandler) noexcept {
 
 // Constructor with optional context configuration
 Aeron::Aeron(const std::string& aeronDir) : _isRunning(false) {
-    aeron::Context context;
-
-    if (!aeronDir.empty()) {
-        context.aeronDir(aeronDir);
-    }
-
     try {
+        aeron::Context context;
+        if (!aeronDir.empty()) context.aeronDir(aeronDir);
+
         _aeron = aeron::Aeron::connect(context);
         _isRunning = true;
     } catch (const std::exception& e) {
@@ -359,18 +371,17 @@ Aeron::Aeron(const std::string& aeronDir) : _isRunning(false) {
 
 Aeron::~Aeron() noexcept { close(); }
 
-// Movable
+// Move constructor
 Aeron::Aeron(Aeron&& aeron) noexcept
-    : _aeron(std::move(aeron._aeron)), _isRunning(aeron._isRunning.load()) {
-    aeron._isRunning = false;
-}
+    : _aeron(std::move(aeron._aeron)),
+      _isRunning(aeron._isRunning.exchange(false)) {}
 
+// Move assignment
 Aeron& Aeron::operator=(Aeron&& aeron) noexcept {
     if (this != &aeron) {
         close();
         _aeron = std::move(aeron._aeron);
-        _isRunning = aeron._isRunning.load();
-        aeron._isRunning = false;
+        _isRunning = aeron._isRunning.exchange(false);
     }
     return *this;
 }
@@ -392,40 +403,42 @@ std::shared_ptr<aeron::Aeron> Aeron::aeron() const noexcept { return _aeron; }
 // Create publication
 std::unique_ptr<Publication> Aeron::create_publication(
     const std::string& channel, std::int32_t streamId,
-    const ConnectionHandler& connectionHandler) {
+    ConnectionHandler connectionHandler) {
     if (!_isRunning) {
         throw AeronError("Aeron is not running");
     }
 
     try {
+        auto deadline =
+            std::chrono::steady_clock::now() + std::chrono::seconds(5);
+
         auto publicationId = _aeron->addPublication(channel, streamId);
 
         // Poll for publication to become available
         std::shared_ptr<aeron::Publication> publication;
-        auto timeout =
-            std::chrono::steady_clock::now() + std::chrono::seconds(5);
-
-        while (std::chrono::steady_clock::now() < timeout) {
-            publication = _aeron->findPublication(publicationId);
-            if (publication) {
-                break;
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-
-        if (!publication) {
+        if (!wait_until(
+                [&] {
+                    publication = _aeron->findPublication(publicationId);
+                    return static_cast<bool>(publication);
+                },
+                std::chrono::milliseconds(1), deadline)) {
             throw AeronError("Failed to find publication with ID: " +
                              std::to_string(publicationId));
         }
 
         // Wait for publication to be ready (with timeout)
-        while (!publication->isConnected() && !publication->isClosed() &&
-               std::chrono::steady_clock::now() < timeout) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        if (!wait_until(
+                [&] {
+                    return publication->isConnected() ||
+                           publication->isClosed();
+                },
+                std::chrono::milliseconds(1), deadline)) {
+            throw AeronError("Publication not ready before timeout");
         }
 
-        return std::make_unique<Publication>(std::move(publication), channel,
-                                             streamId, connectionHandler);
+        return std::make_unique<Publication>(std::move(publication),  //
+                                             channel, streamId,
+                                             std::move(connectionHandler));
     } catch (const std::exception& e) {
         throw AeronError("Failed to create publication: " +
                          std::string(e.what()));
@@ -435,40 +448,41 @@ std::unique_ptr<Publication> Aeron::create_publication(
 // Create subscription
 std::unique_ptr<Subscription> Aeron::create_subscription(
     const std::string& channel, std::int32_t streamId,
-    const ConnectionHandler& connectionHandler) {
+    ConnectionHandler connectionHandler) {
     if (!_isRunning) {
         throw AeronError("Aeron is not running");
     }
 
     try {
-        auto subscriptionId = _aeron->addSubscription(channel, streamId);
-
-        // Poll for subscription to become available
-        std::shared_ptr<aeron::Subscription> subscription;
-        auto timeout =
+        auto deadline =
             std::chrono::steady_clock::now() + std::chrono::seconds(5);
 
-        while (std::chrono::steady_clock::now() < timeout) {
-            subscription = _aeron->findSubscription(subscriptionId);
-            if (subscription) {
-                break;
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-
-        if (!subscription) {
+        auto subscriptionId = _aeron->addSubscription(channel, streamId);
+        // Poll for subscription to become available
+        std::shared_ptr<aeron::Subscription> subscription;
+        if (!wait_until(
+                [&] {
+                    subscription = _aeron->findSubscription(subscriptionId);
+                    return static_cast<bool>(subscription);
+                },
+                std::chrono::milliseconds(1), deadline)) {
             throw AeronError("Failed to find subscription with ID: " +
                              std::to_string(subscriptionId));
         }
 
         // Wait for subscription to be ready (with timeout)
-        while (!subscription->isConnected() && !subscription->isClosed() &&
-               std::chrono::steady_clock::now() < timeout) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        if (!wait_until(
+                [&] {
+                    return subscription->isConnected() ||
+                           subscription->isClosed();
+                },
+                std::chrono::milliseconds(1), deadline)) {
+            throw AeronError("Subscription not ready before timeout");
         }
 
-        return std::make_unique<Subscription>(std::move(subscription), channel,
-                                              streamId, connectionHandler);
+        return std::make_unique<Subscription>(std::move(subscription),  //
+                                              channel, streamId,
+                                              std::move(connectionHandler));
     } catch (const std::exception& e) {
         throw AeronError("Failed to create subscription: " +
                          std::string(e.what()));

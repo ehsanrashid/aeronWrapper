@@ -36,7 +36,7 @@ std::string pubresult_to_string(PublicationResult pubResult) noexcept;
 // Error classes
 class AeronError : public std::runtime_error {
    public:
-    explicit AeronError(const std::string& message);
+    explicit AeronError(const std::string& msg);
 };
 
 // Forward declarations
@@ -70,7 +70,7 @@ class Publication final {
    public:
     Publication(std::shared_ptr<aeron::Publication> publication,
                 const std::string& channel, std::int32_t streamId,
-                const ConnectionHandler& connectionHandler = nullptr) noexcept;
+                ConnectionHandler connectionHandler = nullptr) noexcept;
 
     ~Publication() noexcept = default;
 
@@ -139,7 +139,7 @@ class Subscription final {
     class BackgroundPoller final {
        public:
         BackgroundPoller(Subscription* subscription,
-                         const FragmentHandler& fragmentHandler) noexcept;
+                         FragmentHandler fragmentHandler) noexcept;
 
         ~BackgroundPoller() noexcept;
 
@@ -160,7 +160,7 @@ class Subscription final {
 
     Subscription(std::shared_ptr<aeron::Subscription> subscription,
                  const std::string& channel, std::int32_t streamId,
-                 const ConnectionHandler& connectionHandler = nullptr) noexcept;
+                 ConnectionHandler connectionHandler = nullptr) noexcept;
 
     ~Subscription() noexcept = default;
 
@@ -171,21 +171,20 @@ class Subscription final {
     Subscription& operator=(Subscription&&) = default;
 
     // Polling methods
-    int poll(const FragmentHandler& fragmentHandler,
-             int fragmentLimit = 10) noexcept;
+    int poll(FragmentHandler fragmentHandler, int fragmentLimit = 10) noexcept;
 
     // Block poll - polls until at least one message or timeout
     int block_poll(
-        const FragmentHandler& fragmentHandler,
+        FragmentHandler fragmentHandler,
         std::chrono::milliseconds timeout = std::chrono::milliseconds(1000),
         int fragmentLimit = 10) noexcept;
 
     std::unique_ptr<BackgroundPoller> start_background_polling(
-        const FragmentHandler& fragmentHandler) noexcept;
+        FragmentHandler fragmentHandler) noexcept;
 
     // handler to be used in poll
     aeron::fragment_handler_t fragment_handler(
-        const FragmentHandler& fragmentHandler) noexcept;
+        FragmentHandler fragmentHandler) noexcept;
 
     // Status methods
     bool is_connected() const noexcept;
@@ -219,14 +218,14 @@ class RingBuffer final {
 
     RingBuffer(size_t size) noexcept;
 
+    ~RingBuffer() noexcept = default;
+
     bool write_buffer(const FragmentData& fragmentData) noexcept;
 
     void read_buffer(ReadHandler readHandler) noexcept;
 
-    ~RingBuffer() = default;
-
    private:
-    std::vector<uint8_t> _buffer;
+    std::vector<std::uint8_t> _buffer;
     aeron::concurrent::AtomicBuffer _atomicBuffer;
     aeron::concurrent::ringbuffer::OneToOneRingBuffer _ringBuffer;
 };
@@ -256,11 +255,11 @@ class Aeron final {
     // Factory methods
     std::unique_ptr<Publication> create_publication(
         const std::string& channel, std::int32_t streamId,
-        const ConnectionHandler& connectionHandler = nullptr);
+        ConnectionHandler connectionHandler = nullptr);
 
     std::unique_ptr<Subscription> create_subscription(
         const std::string& channel, std::int32_t streamId,
-        const ConnectionHandler& connectionHandler = nullptr);
+        ConnectionHandler connectionHandler = nullptr);
 
    private:
     std::shared_ptr<aeron::Aeron> _aeron;

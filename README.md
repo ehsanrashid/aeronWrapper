@@ -232,8 +232,10 @@ struct FragmentData final {
 #### Function Types
 
 ```cpp
-using FragmentHandler = std::function<void(const FragmentData& fragment)>;
-using ConnectionHandler = std::function<void(bool connected)>;
+using FragmentHandler = std::function<void(const FragmentData&)>;
+using ReadHandler = std::function<bool(std::int8_t, char*, std::int32_t,
+                                       std::int32_t, std::int32_t)>;
+using ConnectionHandler = std::function<void(bool)>;
 ```
 
 ## Advanced Usage
@@ -257,8 +259,8 @@ auto pub = aeron.create_publication("aeron:udp?endpoint=localhost:40123", 1001, 
 ```cpp
 auto sub = aeron.create_subscription("aeron:udp?endpoint=localhost:40123", 1001);
 
-auto handler = [](const aeron_wrapper::FragmentData& fragment) {
-    std::cout << "Background received: " << fragment.as_string() << std::endl;
+auto handler = [](const aeron_wrapper::FragmentData& fragmentData) {
+    std::cout << "Background received: " << fragmentData.as_string() << std::endl;
 };
 
 // Start background polling
