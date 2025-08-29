@@ -67,7 +67,7 @@ using ConnectionHandler = std::function<void(bool connected)>;
 // Publication wrapper with enhanced functionality
 class Publication final {
    public:
-    Publication(std::shared_ptr<aeron::Publication> pub,
+    Publication(std::shared_ptr<aeron::Publication> publication,
                 const std::string& channel, std::int32_t streamId,
                 const ConnectionHandler& connectionHandler = nullptr) noexcept;
 
@@ -157,7 +157,7 @@ class Subscription final {
         std::atomic<bool> _isRunning{false};
     };
 
-    Subscription(std::shared_ptr<aeron::Subscription> sub,
+    Subscription(std::shared_ptr<aeron::Subscription> subscription,
                  const std::string& channel, std::int32_t streamId,
                  const ConnectionHandler& connectionHandler = nullptr) noexcept;
 
