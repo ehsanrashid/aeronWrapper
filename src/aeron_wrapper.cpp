@@ -27,7 +27,7 @@ std::string pubresult_to_string(PublicationResult pubResult) noexcept {
     }
 }
 
-AeronException::AeronException(const std::string& message) noexcept
+AeronError::AeronError(const std::string& message)
     : std::runtime_error("AeronWrapper: " + message) {}
 
 // Helper to get data as string
@@ -40,7 +40,7 @@ std::string FragmentData::as_string() const noexcept {
 template <typename T>
 const T& FragmentData::as() const {
     if (length < sizeof(T)) {
-        throw AeronException("Fragment too small for requested type");
+        throw AeronError("Fragment too small for requested type");
     }
     return *reinterpret_cast<const T*>(atomicBuffer.buffer());
 }
@@ -353,8 +353,8 @@ Aeron::Aeron(const std::string& aeronDir) : _isRunning(false) {
         _aeron = aeron::Aeron::connect(context);
         _isRunning = true;
     } catch (const std::exception& e) {
-        throw AeronException("Failed to connect to Aeron: " +
-                             std::string(e.what()));
+        throw AeronError("Failed to connect to Aeron: " +
+                         std::string(e.what()));
     }
 }
 
@@ -395,7 +395,7 @@ std::unique_ptr<Publication> Aeron::create_publication(
     const std::string& channel, std::int32_t streamId,
     const ConnectionHandler& connectionHandler) {
     if (!_isRunning) {
-        throw AeronException("Aeron is not running");
+        throw AeronError("Aeron is not running");
     }
 
     try {
@@ -415,8 +415,8 @@ std::unique_ptr<Publication> Aeron::create_publication(
         }
 
         if (!publication) {
-            throw AeronException("Failed to find publication with ID: " +
-                                 std::to_string(publicationId));
+            throw AeronError("Failed to find publication with ID: " +
+                             std::to_string(publicationId));
         }
 
         // Wait for publication to be ready (with timeout)
@@ -428,8 +428,8 @@ std::unique_ptr<Publication> Aeron::create_publication(
         return std::make_unique<Publication>(std::move(publication), channel,
                                              streamId, connectionHandler);
     } catch (const std::exception& e) {
-        throw AeronException("Failed to create publication: " +
-                             std::string(e.what()));
+        throw AeronError("Failed to create publication: " +
+                         std::string(e.what()));
     }
 }
 
@@ -438,7 +438,7 @@ std::unique_ptr<Subscription> Aeron::create_subscription(
     const std::string& channel, std::int32_t streamId,
     const ConnectionHandler& connectionHandler) {
     if (!_isRunning) {
-        throw AeronException("Aeron is not running");
+        throw AeronError("Aeron is not running");
     }
 
     try {
@@ -458,8 +458,8 @@ std::unique_ptr<Subscription> Aeron::create_subscription(
         }
 
         if (!subscription) {
-            throw AeronException("Failed to find subscription with ID: " +
-                                 std::to_string(subscriptionId));
+            throw AeronError("Failed to find subscription with ID: " +
+                             std::to_string(subscriptionId));
         }
 
         // Wait for subscription to be ready (with timeout)
@@ -471,8 +471,8 @@ std::unique_ptr<Subscription> Aeron::create_subscription(
         return std::make_unique<Subscription>(std::move(subscription), channel,
                                               streamId, connectionHandler);
     } catch (const std::exception& e) {
-        throw AeronException("Failed to create subscription: " +
-                             std::string(e.what()));
+        throw AeronError("Failed to create subscription: " +
+                         std::string(e.what()));
     }
 }
 

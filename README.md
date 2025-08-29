@@ -77,7 +77,7 @@ int main() {
         if (result == aeron_wrapper::PublicationResult::SUCCESS) {
             std::cout << "Message published successfully" << std::endl;
         }
-    } catch (const aeron_wrapper::AeronException& e) {
+    } catch (const aeron_wrapper::AeronError& e) {
         std::cerr << "Error: " << e.what() << std::endl;
     }
     
@@ -111,7 +111,7 @@ int main() {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         }
-    } catch (const aeron_wrapper::AeronException& e) {
+    } catch (const aeron_wrapper::AeronError& e) {
         std::cerr << "Error: " << e.what() << std::endl;
     }
     
@@ -314,17 +314,17 @@ if (success) {
 
 ## Error Handling
 
-The wrapper provides enhanced error handling through the `AeronException` class:
+The wrapper provides enhanced error handling through the `AeronError` class:
 
 ```cpp
 try {
     aeron_wrapper::Aeron aeron("/invalid/path");
-} catch (const aeron_wrapper::AeronException& e) {
+} catch (const aeron_wrapper::AeronError& e) {
     std::cerr << "Aeron error: " << e.what() << std::endl;
 }
 ```
 
-All wrapper methods that can fail throw `AeronException` with descriptive error messages.
+All wrapper methods that can fail throw `AeronError` with descriptive error messages.
 
 ## Performance Considerations
 

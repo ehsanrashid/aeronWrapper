@@ -32,10 +32,10 @@ enum class PublicationResult : int8_t {
 // Get publication constants as string for debugging
 std::string pubresult_to_string(PublicationResult pubResult) noexcept;
 
-// Exception classes
-class AeronException : public std::runtime_error {
+// Error classes
+class AeronError : public std::runtime_error {
    public:
-    explicit AeronException(const std::string& message) noexcept;
+    explicit AeronError(const std::string& message);
 };
 
 // Forward declarations
