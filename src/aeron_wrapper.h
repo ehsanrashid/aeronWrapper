@@ -15,6 +15,7 @@
 // Aeron C++ headers
 #include "Aeron.h"
 #include "concurrent/AtomicBuffer.h"
+#include "concurrent/logbuffer/Header.h"
 #include "concurrent/ringbuffer/OneToOneRingBuffer.h"
 
 namespace aeron_wrapper {
@@ -46,9 +47,9 @@ class Aeron;
 // Fragment handler with metadata
 struct FragmentData final {
     aeron::concurrent::AtomicBuffer atomicBuffer;
-    aeron::util::index_t length;
-    aeron::util::index_t offset;
-    aeron::Header header;
+    std::int32_t length;
+    std::int32_t offset;
+    aeron::concurrent::logbuffer::Header header;
 
     // Helper to get data as string
     std::string as_string() const noexcept;

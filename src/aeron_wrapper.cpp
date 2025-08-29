@@ -67,8 +67,7 @@ PublicationResult Publication::offer(const std::uint8_t* buffer,
     // Note: AtomicBuffer takes non-const pointer, but Aeron doesn't modify
     // during offer
     aeron::concurrent::AtomicBuffer atomicBuffer(
-        const_cast<std::uint8_t*>(buffer),
-        static_cast<aeron::util::index_t>(length));
+        const_cast<std::uint8_t*>(buffer), length);
 
     std::int64_t result = _publication->offer(
         atomicBuffer, 0, static_cast<aeron::util::index_t>(length));
@@ -263,8 +262,9 @@ Subscription::start_background_polling(
 
 aeron::fragment_handler_t Subscription::fragment_handler(
     const FragmentHandler& fragmentHandler) noexcept {
-    return [&](const aeron::AtomicBuffer& atomicBuffer, std::int32_t offset,
-               std::int32_t length, const aeron::Header& header) {
+    return [&](const aeron::concurrent::AtomicBuffer& atomicBuffer,
+               std::int32_t offset, std::int32_t length,
+               const aeron::concurrent::logbuffer::Header& header) {
         FragmentData fragmentData{atomicBuffer, length, offset, header};
         fragmentHandler(fragmentData);
     };
