@@ -67,14 +67,6 @@ using ConnectionHandler = std::function<void(bool connected)>;
 // Publication wrapper with enhanced functionality
 class Publication final {
    private:
-    std::shared_ptr<aeron::Publication> _publication;
-    std::string _channel;
-    std::int32_t _streamId;
-    ConnectionHandler _connectionHandler;
-    std::atomic<bool> _wasConnected{false};
-
-    friend class Aeron;
-
     Publication(std::shared_ptr<aeron::Publication> pub,
                 const std::string& channel, std::int32_t streamId,
                 const ConnectionHandler& connectionHandler = nullptr) noexcept;
@@ -130,38 +122,21 @@ class Publication final {
 
    private:
     void check_connection_state() noexcept;
-};
 
-// Subscription wrapper with enhanced functionality
-class Subscription final {
-   private:
-    std::shared_ptr<aeron::Subscription> _subscription;
+    std::shared_ptr<aeron::Publication> _publication;
     std::string _channel;
     std::int32_t _streamId;
     ConnectionHandler _connectionHandler;
     std::atomic<bool> _wasConnected{false};
 
     friend class Aeron;
+};
 
-    Subscription(std::shared_ptr<aeron::Subscription> sub,
-                 const std::string& channel, std::int32_t streamId,
-                 const ConnectionHandler& connectionHandler = nullptr) noexcept;
-
+// Subscription wrapper with enhanced functionality
+class Subscription final {
    public:
-    ~Subscription() noexcept = default;
-
-    // Non-copyable but movable
-    Subscription(const Subscription&) = delete;
-    Subscription& operator=(const Subscription&) = delete;
-    Subscription(Subscription&&) = default;
-    Subscription& operator=(Subscription&&) = default;
-
     // Continuous polling in background thread
-    class BackgroundPoller {
-       private:
-        std::unique_ptr<std::thread> _pollThread;
-        std::atomic<bool> _isRunning{false};
-
+    class BackgroundPoller final {
        public:
         BackgroundPoller(Subscription* subscription,
                          const FragmentHandler& fragmentHandler) noexcept;
@@ -177,7 +152,25 @@ class Subscription final {
         void stop() noexcept;
 
         bool is_running() const noexcept;
+
+       private:
+        std::unique_ptr<std::thread> _pollThread;
+        std::atomic<bool> _isRunning{false};
     };
+
+   private:
+    Subscription(std::shared_ptr<aeron::Subscription> sub,
+                 const std::string& channel, std::int32_t streamId,
+                 const ConnectionHandler& connectionHandler = nullptr) noexcept;
+
+   public:
+    ~Subscription() noexcept = default;
+
+    // Non-copyable but movable
+    Subscription(const Subscription&) = delete;
+    Subscription& operator=(const Subscription&) = delete;
+    Subscription(Subscription&&) = default;
+    Subscription& operator=(Subscription&&) = default;
 
     // Polling methods
     int poll(const FragmentHandler& fragmentHandler,
@@ -211,6 +204,14 @@ class Subscription final {
 
    private:
     void check_connection_state() noexcept;
+
+    std::shared_ptr<aeron::Subscription> _subscription;
+    std::string _channel;
+    std::int32_t _streamId;
+    ConnectionHandler _connectionHandler;
+    std::atomic<bool> _wasConnected{false};
+
+    friend class Aeron;
 };
 
 class RingBuffer final {
@@ -234,10 +235,6 @@ class RingBuffer final {
 
 // RAII wrapper for Aeron Client
 class Aeron final {
-   private:
-    std::shared_ptr<aeron::Aeron> _aeron;
-    std::atomic<bool> _isRunning{false};
-
    public:
     // Constructor with optional context configuration
     explicit Aeron(const std::string& aeronDir = "") noexcept;
@@ -266,6 +263,10 @@ class Aeron final {
     std::unique_ptr<Subscription> create_subscription(
         const std::string& channel, std::int32_t streamId,
         const ConnectionHandler& connectionHandler = nullptr);
+
+   private:
+    std::shared_ptr<aeron::Aeron> _aeron;
+    std::atomic<bool> _isRunning{false};
 };
 
 }  // namespace aeron_wrapper
