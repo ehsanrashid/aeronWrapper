@@ -126,7 +126,7 @@ class Publication final {
     std::string _channel;
     std::int32_t _streamId;
     ConnectionHandler _connectionHandler;
-    std::atomic<bool> _wasConnected{false};
+    std::atomic<bool> _wasConnected;
 
     friend class Aeron;
 };
@@ -154,7 +154,7 @@ class Subscription final {
 
        private:
         std::unique_ptr<std::thread> _pollThread;
-        std::atomic<bool> _isRunning{false};
+        std::atomic<bool> _isRunning;
     };
 
     Subscription(std::shared_ptr<aeron::Subscription> subscription,
@@ -206,7 +206,7 @@ class Subscription final {
     std::string _channel;
     std::int32_t _streamId;
     ConnectionHandler _connectionHandler;
-    std::atomic<bool> _wasConnected{false};
+    std::atomic<bool> _wasConnected;
 
     friend class Aeron;
 };
@@ -263,7 +263,7 @@ class Aeron final {
 
    private:
     std::shared_ptr<aeron::Aeron> _aeron;
-    std::atomic<bool> _isRunning{false};
+    std::atomic<bool> _isRunning;
 };
 
 }  // namespace aeron_wrapper

@@ -51,7 +51,8 @@ Publication::Publication(std::shared_ptr<aeron::Publication> publication,
     : _publication(std::move(publication)),
       _channel(channel),
       _streamId(streamId),
-      _connectionHandler(connectionHandler) {}
+      _connectionHandler(connectionHandler),
+      _wasConnected(false) {}
 
 // Publishing methods with better error handling
 PublicationResult Publication::offer(const std::uint8_t* buffer,
@@ -183,20 +184,20 @@ void Publication::check_connection_state() noexcept {
 }
 
 Subscription::BackgroundPoller::BackgroundPoller(
-    Subscription* subscription,
-    const FragmentHandler& fragmentHandler) noexcept {
-    _isRunning = true;
+    Subscription* subscription, const FragmentHandler& fragmentHandler) noexcept
+    : _isRunning(false) {
     _pollThread =
         std::make_unique<std::thread>([this, subscription, fragmentHandler]() {
             static aeron::SleepingIdleStrategy sleepingIdleStrategy(
                 std::chrono::duration<long, std::milli>(1));
+            _isRunning = true;
             while (_isRunning) {
                 try {
                     int fragments = subscription->poll(fragmentHandler, 10);
                     sleepingIdleStrategy.idle(fragments);
                 } catch (const std::exception&) {
                     // Log error in real implementation
-                    break;
+                    _isRunning = false;
                 }
             }
         });
@@ -223,7 +224,8 @@ Subscription::Subscription(std::shared_ptr<aeron::Subscription> subscription,
     : _subscription(std::move(subscription)),
       _channel(channel),
       _streamId(streamId),
-      _connectionHandler(connectionHandler) {}
+      _connectionHandler(connectionHandler),
+      _wasConnected(false) {}
 
 // Polling methods
 int Subscription::poll(const FragmentHandler& fragmentHandler,
@@ -340,7 +342,7 @@ void RingBuffer::read_buffer(ReadHandler readHandler) noexcept {
 }
 
 // Constructor with optional context configuration
-Aeron::Aeron(const std::string& aeronDir) noexcept {
+Aeron::Aeron(const std::string& aeronDir) noexcept : _isRunning(false) {
     aeron::Context context;
 
     if (!aeronDir.empty()) {
