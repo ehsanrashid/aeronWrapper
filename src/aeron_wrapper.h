@@ -216,7 +216,7 @@ class RingBuffer final {
     static constexpr auto TRAILER_LENGTH =
         aeron::concurrent::ringbuffer::RingBufferDescriptor::TRAILER_LENGTH;
 
-    RingBuffer(size_t size) noexcept;
+    RingBuffer(std::size_t size) noexcept;
 
     ~RingBuffer() noexcept = default;
 

@@ -317,7 +317,7 @@ void Subscription::check_connection_state() noexcept {
     }
 }
 
-RingBuffer::RingBuffer(size_t size) noexcept
+RingBuffer::RingBuffer(std::size_t size) noexcept
     : _buffer(size + TRAILER_LENGTH),
       _atomicBuffer(_buffer.data(), size + TRAILER_LENGTH),
       _ringBuffer(_atomicBuffer) {}
