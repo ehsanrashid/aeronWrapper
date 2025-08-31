@@ -60,7 +60,7 @@ const T& FragmentData::as() const {
 }
 
 Publication::Publication(std::shared_ptr<aeron::Publication> publication,
-                         const std::string& channel, std::int32_t streamId,
+                         std::string_view channel, std::int32_t streamId,
                          ConnectionHandler connectionHandler) noexcept
     : _publication(std::move(publication)),
       _channel(channel),
@@ -87,9 +87,7 @@ PublicationResult Publication::offer(const std::uint8_t* buffer,
         atomicBuffer, 0, static_cast<aeron::util::index_t>(length));
 
     // Positive values indicate success (number of bytes written)
-    if (result > 0) {
-        return PublicationResult::SUCCESS;
-    }
+    if (result > 0) return PublicationResult::SUCCESS;
     // Handle negative error codes
     return static_cast<PublicationResult>(result);
 }
@@ -232,7 +230,7 @@ bool Subscription::BackgroundPoller::is_running() const noexcept {
 }
 
 Subscription::Subscription(std::shared_ptr<aeron::Subscription> subscription,
-                           const std::string& channel, std::int32_t streamId,
+                           std::string_view channel, std::int32_t streamId,
                            ConnectionHandler connectionHandler) noexcept
     : _subscription(std::move(subscription)),
       _channel(channel),
@@ -403,7 +401,7 @@ std::shared_ptr<aeron::Aeron> Aeron::aeron() const noexcept { return _aeron; }
 
 // Create publication
 std::unique_ptr<Publication> Aeron::create_publication(
-    const std::string& channel, std::int32_t streamId,
+    std::string_view channel, std::int32_t streamId,
     ConnectionHandler connectionHandler) {
     if (!_isRunning) {
         throw AeronError("Aeron is not running");
@@ -416,7 +414,8 @@ std::unique_ptr<Publication> Aeron::create_publication(
             std::chrono::steady_clock::now() + std::chrono::seconds(5);
 
         // Poll for publication to become available
-        auto publicationId = _aeron->addPublication(channel, streamId);
+        auto publicationId =
+            _aeron->addPublication(std::string(channel), streamId);
         if (!wait_until(
                 [&] {
                     publication = _aeron->findPublication(publicationId);
@@ -448,7 +447,7 @@ std::unique_ptr<Publication> Aeron::create_publication(
 
 // Create subscription
 std::unique_ptr<Subscription> Aeron::create_subscription(
-    const std::string& channel, std::int32_t streamId,
+    std::string_view channel, std::int32_t streamId,
     ConnectionHandler connectionHandler) {
     if (!_isRunning) {
         throw AeronError("Aeron is not running");
@@ -461,7 +460,8 @@ std::unique_ptr<Subscription> Aeron::create_subscription(
             std::chrono::steady_clock::now() + std::chrono::seconds(5);
 
         // Poll for subscription to become available
-        auto subscriptionId = _aeron->addSubscription(channel, streamId);
+        auto subscriptionId =
+            _aeron->addSubscription(std::string(channel), streamId);
         if (!wait_until(
                 [&] {
                     subscription = _aeron->findSubscription(subscriptionId);

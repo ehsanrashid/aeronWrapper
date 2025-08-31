@@ -70,7 +70,7 @@ using ReadHandler = std::function<bool(std::int8_t, char*, std::int32_t,
 class Publication final {
    public:
     Publication(std::shared_ptr<aeron::Publication> publication,
-                const std::string& channel, std::int32_t streamId,
+                std::string_view channel, std::int32_t streamId,
                 ConnectionHandler connectionHandler = nullptr) noexcept;
 
     ~Publication() noexcept = default;
@@ -160,7 +160,7 @@ class Subscription final {
     };
 
     Subscription(std::shared_ptr<aeron::Subscription> subscription,
-                 const std::string& channel, std::int32_t streamId,
+                 std::string_view channel, std::int32_t streamId,
                  ConnectionHandler connectionHandler = nullptr) noexcept;
 
     ~Subscription() noexcept = default;
@@ -255,11 +255,11 @@ class Aeron final {
 
     // Factory methods
     std::unique_ptr<Publication> create_publication(
-        const std::string& channel, std::int32_t streamId,
+        std::string_view channel, std::int32_t streamId,
         ConnectionHandler connectionHandler = nullptr);
 
     std::unique_ptr<Subscription> create_subscription(
-        const std::string& channel, std::int32_t streamId,
+        std::string_view channel, std::int32_t streamId,
         ConnectionHandler connectionHandler = nullptr);
 
    private:
